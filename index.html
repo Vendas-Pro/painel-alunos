@@ -504,26 +504,54 @@ async function buscarNaPlanilhaAlunos(query, sheetId) {
   // Closer Pro aba Compradores — busca coluna Status pelo nome no cabeçalho
   const header = rows[0];
   const nomeIdx = 6, emailIdx = 7, telIdx = 8, dataIdx = 3, expIdx = 5;
-  // Procura "Status" no cabeçalho (ignora acentos e maiúsculas)
   const statusIdx = header.findIndex(h => normalize(h.trim()) === 'status');
 
   const q = normalize(query);
+  const isEmail = query.includes('@');
   const resultados = [];
+
   for (const row of rows.slice(1)) {
     const nome = row[nomeIdx] || '';
     const email = row[emailIdx] || '';
     if (!nome && !email) continue;
-    if (normalize(nome).includes(q) || normalize(email).includes(q)) {
+
+    const nomeN = normalize(nome);
+    const emailN = normalize(email);
+
+    let match = false;
+    if (isEmail) {
+      // Busca por email: exige correspondência exata do email
+      match = emailN === q;
+    } else {
+      // Busca por nome: exige que TODAS as palavras da query apareçam no nome
+      const palavras = q.split(/\s+/).filter(Boolean);
+      match = palavras.every(p => nomeN.includes(p));
+    }
+
+    if (match) {
       resultados.push({
         nome, email,
         telefone: row[telIdx] || '',
         dataInicio: row[dataIdx] || '',
         expiracao: row[expIdx] || '',
         status: (statusIdx >= 0 ? row[statusIdx] || '' : '').trim(),
+        fonte: 'closerpro',
       });
     }
   }
   return resultados;
+}
+
+// Verifica se query bate com nome ou email
+function matchQuery(query, nome, email) {
+  const q = normalize(query.trim());
+  if (!q) return false;
+  // Busca por email: exige match exato
+  if (query.includes('@')) return normalize(email.trim()) === q;
+  // Busca por nome: retorna se qualquer palavra da query aparece no nome
+  const palavras = q.split(/\s+/).filter(Boolean);
+  const nomeN = normalize(nome);
+  return palavras.some(p => p.length >= 3 && nomeN.includes(p));
 }
 
 async function buscarNaPlanilhaSparrings(query, sheetId) {
@@ -539,7 +567,7 @@ async function buscarNaPlanilhaSparrings(query, sheetId) {
     const nome = row[nomeIdx] || '';
     const email = row[emailIdx] || '';
     if (!nome && !email) continue;
-    if (normalize(email) === q || normalize(email).includes(q) || normalize(nome).includes(q)) {
+    if (matchQuery(query, nome, email)) {
       return {
         ouvinte: parseInt(row[oIdx]) || 0,
         lead: parseInt(row[lIdx]) || 0,
@@ -578,7 +606,7 @@ async function buscarNaPlanilhaLiderPro(query, sheetId) {
     const emailCtrl = row[3] || '';
     const nomeCtrl = row[2] || '';
     if (emailCtrl && emailCtrl.includes('@')) {
-      if (normalize(emailCtrl).includes(q) || normalize(nomeCtrl).includes(q)) {
+      if (matchQuery(query, nomeCtrl, emailCtrl)) {
         resultadoControle = {
           formacao: 'Líder Pro',
           nome: nomeCtrl,
@@ -595,7 +623,7 @@ async function buscarNaPlanilhaLiderPro(query, sheetId) {
     const emailVnd = row[6] || '';
     const nomeVnd = row[5] || '';
     if (emailVnd && emailVnd.includes('@') && !resultadoVendas) {
-      if (normalize(emailVnd).includes(q) || normalize(nomeVnd).includes(q)) {
+      if (matchQuery(query, nomeVnd, emailVnd)) {
         resultadoVendas = {
           formacao: 'Líder Pro',
           nome: nomeVnd,
@@ -799,10 +827,15 @@ function perfilParaHTML(aluno, sparring, subdomain, formacoes, mk, progressoManu
       }).join('');
   })();
 
+  const fotoUrlPDF = mk?.profile_image_url || '';
+  const avatarPDF = fotoUrlPDF
+    ? `<div class="avatar-circle" style="overflow:hidden;padding:0;"><img src="${fotoUrlPDF}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.innerHTML='${(nome||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}'"></div>`
+    : `<div class="avatar-circle">${(nome||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}</div>`;
+
   return `
     <div class="card">
       <div class="card-header">
-        <div class="avatar-circle">${(nome||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}</div>
+        ${avatarPDF}
         <div class="header-info">
           <h2>${nome}</h2>
         </div>
@@ -918,14 +951,16 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
   const email = aluno?.email || mk?.user?.email || '';
   const tel = aluno?.telefone || liderPro?.telefone || especializacao?.telefone || '';
 
-  // Monta lista de formações encontradas
+  // Monta lista de formações — apenas as planilhas onde o aluno foi ENCONTRADO
   const formacoes = [];
-  if (aluno?.expiracao || aluno?.dataInicio) {
-    formacoes.push({ nome: sparring?.formacao || 'Closer Pro', inicio: aluno?.dataInicio || '', exp: aluno?.expiracao || '' });
+  // Closer Pro: só adiciona se o aluno veio diretamente da planilha Closer Pro (fonte = 'closerpro')
+  if (aluno?.fonte === 'closerpro') {
+    formacoes.push({ nome: 'Closer Pro', inicio: aluno?.dataInicio || '', exp: aluno?.expiracao || '' });
   }
+  // Líder Pro: só adiciona se foi encontrado na planilha Líder Pro
   if (liderPro) formacoes.push({ nome: 'Líder Pro', inicio: liderPro.dataInicio || '', exp: liderPro.expiracao || '' });
+  // Especialização: só adiciona se foi encontrado na planilha Especialização
   if (especializacao) formacoes.push({ nome: 'Especialização Closer HT', inicio: especializacao.dataInicio || '', exp: especializacao.expiracao || '' });
-  if (!formacoes.length && sparring?.formacao) formacoes.push({ nome: sparring.formacao, inicio: '', exp: sparring.expiracao || '' });
 
   const spOuvinte = sparring?.ouvinte ?? '—';
   const spLead = sparring?.lead ?? '—';
