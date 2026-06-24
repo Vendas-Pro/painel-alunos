@@ -504,7 +504,8 @@ async function buscarNaPlanilhaAlunos(query, sheetId) {
   // Closer Pro aba Compradores — busca coluna Status pelo nome no cabeçalho
   const header = rows[0];
   const nomeIdx = 6, emailIdx = 7, telIdx = 8, dataIdx = 3, expIdx = 5;
-  const statusIdx = header.findIndex(h => normalize(h) === 'status');
+  // Procura "Status" no cabeçalho (ignora acentos e maiúsculas)
+  const statusIdx = header.findIndex(h => normalize(h.trim()) === 'status');
 
   const q = normalize(query);
   const resultados = [];
@@ -560,20 +561,12 @@ async function buscarNaPlanilhaLiderPro(query, sheetId) {
 
   const q = normalize(query);
 
-  // Encontra o cabeçalho da tabela controle e o índice de Status
-  let ctrlStatusIdx = -1;
-  let ctrlHeaderRow = -1;
-  for (let i = 0; i < Math.min(rows.length, 20); i++) {
-    const row = rows[i];
-    const idx = row.findIndex(h => normalize(h) === 'status');
-    if (idx >= 0 && row.some(h => normalize(h) === 'expiracao' || normalize(h).includes('expira'))) {
-      ctrlStatusIdx = idx;
-      ctrlHeaderRow = i;
-      break;
-    }
+  // Encontra índice de Status varrendo cabeçalhos — fallback col 7
+  let ctrlStatusIdx = 7;
+  for (let i = 0; i < Math.min(rows.length, 5); i++) {
+    const idx = rows[i].findIndex(h => normalize((h||'').trim()) === 'status');
+    if (idx >= 0) { ctrlStatusIdx = idx; break; }
   }
-  // Fallback: col 7
-  if (ctrlStatusIdx < 0) ctrlStatusIdx = 7;
 
   let resultadoControle = null;
   let resultadoVendas = null;
@@ -1348,7 +1341,7 @@ async function buscar() {
   // Se não está na Closer Pro mas está em outra planilha, monta um aluno base sintético
   if (!alunosBase.length) {
     const base = liderPro || especializacao;
-    alunosBase = [{ nome: base.nome, email: base.email, telefone: base.telefone, dataInicio: base.dataInicio, expiracao: base.expiracao }];
+    alunosBase = [{ nome: base.nome, email: base.email, telefone: base.telefone, dataInicio: base.dataInicio, expiracao: base.expiracao, status: base.status || '' }];
   }
 
   _alunosEncontrados = alunosBase;
