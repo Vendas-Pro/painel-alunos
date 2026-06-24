@@ -373,10 +373,20 @@
 // ─── CONFIG ───────────────────────────────────────
 const PROXY_URL = 'https://script.google.com/macros/s/AKfycbw7wgIyTfbOS96JRGVmcDgnQ5q8P9Is-mtrncBYfXNX6_5lKeJPo0K1qJ6117AsjKSJ/exec';
 
+const DEFAULTS = {
+  apiKey: '3p95g92cKSxs2Zr1KghH5mvs',
+  subdomain: 'metodo-def',
+  sheet1: '19xTBLUIsEh_9AVJSe-STJlZEXS3V91HkyRzuR_NCb0k',
+  sheet2: '1_smc3Z5R1eLQm3imeNshZg7trjUNBz6uPu49c8yd4OQ',
+  sheetLider: '1a5QsiwMR6aUkYgL_dqGOAG9F0hj3TpIgYJIUTzdXrtA',
+  sheetEspec: '1icemfzsW5ukuJWuHc42mX8Dbehj9NOKgKMh7o0pmivo',
+  googleKey: ''
+};
+
 async function buscarNaMemberkit(email) {
   if (!email) return null;
   try {
-    const url = `${PROXY_URL}?action=getUser&email=${encodeURIComponent(email)}`;
+    const url = PROXY_URL + '?action=getUser&email=' + encodeURIComponent(email);
     const resp = await fetch(url);
     const data = await resp.json();
     if (!data.found) return null;
@@ -386,14 +396,6 @@ async function buscarNaMemberkit(email) {
     return null;
   }
 }
-  apiKey: '3p95g92cKSxs2Zr1KghH5mvs',
-  subdomain: 'metodo-def',
-  sheet1: '19xTBLUIsEh_9AVJSe-STJlZEXS3V91HkyRzuR_NCb0k',   // Closer Pro (alunos)
-  sheet2: '1_smc3Z5R1eLQm3imeNshZg7trjUNBz6uPu49c8yd4OQ',   // Sparrings
-  sheetLider: '1a5QsiwMR6aUkYgL_dqGOAG9F0hj3TpIgYJIUTzdXrtA', // Líder Pro
-  sheetEspec: '1icemfzsW5ukuJWuHc42mX8Dbehj9NOKgKMh7o0pmivo',  // Especialização HT
-  googleKey: ''
-};
 
 function getConfig() {
   return {
@@ -1107,6 +1109,11 @@ async function selecionarAluno(idx) {
 
     setStatus(false);
     render(aluno, sparring, mk, cfg.subdomain, liderPro, especializacao);
+  } catch(e) {
+    console.log('Erro selecionarAluno:', e);
+    setStatus(false);
+    render(aluno, null, null, cfg.subdomain, liderPro, especializacao);
+  }
 }
 
 // ─── BUSCA PRINCIPAL ──────────────────────────────
