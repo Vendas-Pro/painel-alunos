@@ -773,16 +773,16 @@ function perfilParaHTML(aluno, sparring, subdomain, formacoes, mk) {
     <div class="divider"></div>
     <div class="section-label">Progresso na Plataforma</div>
     ${mk.progressos.map(p => {
-      const n = p.aulas_concluidas || 0;
-      const cor = n >= 10 ? '#2e7d32' : n >= 5 ? '#7B2D8B' : '#e65100';
-      const bg = n >= 10 ? '#c8e6c9' : n >= 5 ? '#f5eef8' : '#ffe0cc';
+      const pct = p.progress || 0;
+      const cor = pct === 100 ? '#2e7d32' : pct >= 50 ? '#7B2D8B' : '#e65100';
+      const bg = pct === 100 ? '#c8e6c9' : pct >= 50 ? '#f5eef8' : '#ffe0cc';
       return `<div style="margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
           <span style="font-size:11px;color:#1a1a2e;">${p.course_name}</span>
-          <span style="font-size:11px;font-weight:700;color:${cor};">${n} aula${n!==1?'s':''}</span>
+          <span style="font-size:11px;font-weight:700;color:${cor};">${pct}%</span>
         </div>
         <div style="background:${bg};border-radius:999px;height:6px;overflow:hidden;">
-          <div style="width:${Math.min(n*10,100)}%;background:${cor};height:100%;border-radius:999px;"></div>
+          <div style="width:${pct}%;background:${cor};height:100%;border-radius:999px;"></div>
         </div>
       </div>`;
     }).join('')}` : '';
@@ -920,9 +920,14 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
   const spVendedor = sparring?.vendedor ?? '—';
   const spTotal = (sparring?.ouvinte||0)+(sparring?.lead||0)+(sparring?.vendedor||0);
 
-  const avatarHtml = iniciais(nome);
+  const fotoUrl = mk?.profile_image_url || '';
+  const avatarHtml = fotoUrl
+    ? `<img src="${fotoUrl}" alt="${nome}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.innerHTML='${iniciais(nome)}'">`
+    : iniciais(nome);
   const mkEmail = encodeURIComponent(email);
-  const mkLink = 'https://metodo-def.memberkit.com.br/admin/users' + (email ? '?q=' + mkEmail : '');
+  const mkLink = mk && mk.mk_id
+    ? 'https://metodo-def.memberkit.com.br/admin/users/' + mk.mk_id
+    : 'https://metodo-def.memberkit.com.br/admin/users' + (email ? '?q=' + mkEmail : '');
 
   const telNumeros = tel.replace(/\D/g, '');
   const telHtml = telNumeros
@@ -987,16 +992,16 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
         ${mk && mk.progressos && mk.progressos.length ? `
           <div>
             ${mk.progressos.map(p => {
-              const n = p.aulas_concluidas || 0;
-              const cor = n >= 10 ? '#2e7d32' : n >= 5 ? 'var(--purple)' : '#e65100';
-              const bg = n >= 10 ? '#c8e6c9' : n >= 5 ? '#e8e0ed' : '#ffe0cc';
+              const pct = p.progress || 0;
+              const cor = pct === 100 ? '#2e7d32' : pct >= 50 ? 'var(--purple)' : '#e65100';
+              const bg = pct === 100 ? '#c8e6c9' : pct >= 50 ? '#e8e0ed' : '#ffe0cc';
               return `<div style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                   <span style="font-size:13px;font-weight:500;color:var(--text);">${p.course_name}</span>
-                  <span style="font-size:12px;font-weight:700;color:${cor};">${n} aula${n !== 1 ? 's' : ''}</span>
+                  <span style="font-size:12px;font-weight:700;color:${cor};">${pct}%</span>
                 </div>
                 <div style="background:${bg};border-radius:999px;height:8px;overflow:hidden;">
-                  <div style="width:${Math.min(n * 10, 100)}%;background:${cor};height:100%;border-radius:999px;"></div>
+                  <div style="width:${pct}%;background:${cor};height:100%;border-radius:999px;"></div>
                 </div>
               </div>`;
             }).join('')}
