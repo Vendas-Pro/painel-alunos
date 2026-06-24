@@ -926,8 +926,8 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
     : iniciais(nome);
   const mkEmail = encodeURIComponent(email);
   const mkLink = mk && mk.mk_id
-    ? 'https://metodo-def.memberkit.com.br/admin/users/' + mk.mk_id
-    : 'https://metodo-def.memberkit.com.br/admin/users' + (email ? '?q=' + mkEmail : '');
+    ? 'https://metodo-def.memberkit.com.br/admin/members/' + mk.mk_id
+    : 'https://metodo-def.memberkit.com.br/admin/members' + (email ? '?q=' + mkEmail : '');
 
   const telNumeros = tel.replace(/\D/g, '');
   const telHtml = telNumeros
