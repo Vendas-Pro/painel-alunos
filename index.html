@@ -371,7 +371,21 @@
 
 <script>
 // ─── CONFIG ───────────────────────────────────────
-const DEFAULTS = {
+const PROXY_URL = 'https://script.google.com/macros/s/AKfycbw7wgIyTfbOS96JRGVmcDgnQ5q8P9Is-mtrncBYfXNX6_5lKeJPo0K1qJ6117AsjKSJ/exec';
+
+async function buscarNaMemberkit(email) {
+  if (!email) return null;
+  try {
+    const url = `${PROXY_URL}?action=getUser&email=${encodeURIComponent(email)}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!data.found) return null;
+    return data;
+  } catch(e) {
+    console.log('Memberkit proxy erro:', e);
+    return null;
+  }
+}
   apiKey: '3p95g92cKSxs2Zr1KghH5mvs',
   subdomain: 'metodo-def',
   sheet1: '19xTBLUIsEh_9AVJSe-STJlZEXS3V91HkyRzuR_NCb0k',   // Closer Pro (alunos)
@@ -949,10 +963,23 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
 
       <div class="section">
         <div class="section-title">Memberkit</div>
+        ${mk && mk.enrollments && mk.enrollments.length ? `
+          <div style="margin-bottom:12px;">
+            ${mk.enrollments.map(en => `
+              <div style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <span style="font-size:13px;font-weight:600;color:var(--text);">${en.course_name}</span>
+                  <span style="font-size:12px;font-weight:700;color:var(--purple);">${en.progress}%</span>
+                </div>
+                <div style="background:#e8e0ed;border-radius:999px;height:8px;overflow:hidden;">
+                  <div style="width:${en.progress}%;background:var(--purple);height:100%;border-radius:999px;transition:width .4s;"></div>
+                </div>
+                ${en.expires_at ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;">Expira: ${en.expires_at}</div>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
         <a href="${mkLink}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--purple);color:white;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">
-          🔗 Ver progresso completo na Memberkit
+          🔗 Ver perfil completo na Memberkit
         </a>
-        <p style="font-size:11px;color:var(--muted);margin-top:8px;">Abre direto no perfil do aluno na plataforma.</p>
       </div>
 
       <div class="section" style="background:var(--purple-faint);">
@@ -1061,25 +1088,25 @@ async function selecionarAluno(idx) {
     // Sparring sempre busca; Líder Pro e Especialização só buscam se não vieram do cache
     const promises = [
       buscarNaPlanilhaSparrings(q, cfg.sheet2).catch(() => null),
+      buscarNaMemberkit(aluno.email).catch(() => null),
     ];
     if (!liderPro) promises.push(buscarNaPlanilhaLiderPro(q, cfg.sheetLider).catch(() => null));
     if (!especializacao) promises.push(buscarNaPlanilhaEspecializacao(q, cfg.sheetEspec).catch(() => null));
 
     const results = await Promise.all(promises);
     sparring = results[0];
-    if (!liderPro && results[1] !== undefined) liderPro = results[1];
-    if (!especializacao && results[promises.length - 1] !== undefined && promises.length > 1) {
-      especializacao = !liderPro ? results[1] : results[2];
+    let mk = results[1] || null;
+    if (!liderPro && results[2] !== undefined) liderPro = results[2];
+    if (!especializacao && results[promises.length - 1] !== undefined && promises.length > 2) {
+      especializacao = !liderPro ? results[2] : results[3];
     }
 
-    // Tenta por nome se email não encontrou
     if (!sparring) sparring = await buscarNaPlanilhaSparrings(qNome, cfg.sheet2).catch(() => null);
     if (!liderPro) liderPro = await buscarNaPlanilhaLiderPro(qNome, cfg.sheetLider).catch(() => null);
     if (!especializacao) especializacao = await buscarNaPlanilhaEspecializacao(qNome, cfg.sheetEspec).catch(() => null);
-  } catch(e) { console.log('Erro extra:', e); }
 
-  setStatus(false);
-  render(aluno, sparring, null, cfg.subdomain, liderPro, especializacao);
+    setStatus(false);
+    render(aluno, sparring, mk, cfg.subdomain, liderPro, especializacao);
 }
 
 // ─── BUSCA PRINCIPAL ──────────────────────────────
