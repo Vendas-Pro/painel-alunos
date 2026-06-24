@@ -968,15 +968,16 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
         ${mk && mk.progressos && mk.progressos.length ? `
           <div>
             ${mk.progressos.map(p => {
-              const cor = p.progress === 100 ? '#2e7d32' : p.progress >= 50 ? 'var(--purple)' : '#e65100';
-              const bgBarra = p.progress === 100 ? '#c8e6c9' : p.progress >= 50 ? '#e8e0ed' : '#ffe0cc';
+              const n = p.aulas_concluidas || 0;
+              const cor = n >= 10 ? '#2e7d32' : n >= 5 ? 'var(--purple)' : '#e65100';
+              const bg = n >= 10 ? '#c8e6c9' : n >= 5 ? '#e8e0ed' : '#ffe0cc';
               return `<div style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                   <span style="font-size:13px;font-weight:500;color:var(--text);">${p.course_name}</span>
-                  <span style="font-size:12px;font-weight:700;color:${cor};">${p.progress}%</span>
+                  <span style="font-size:12px;font-weight:700;color:${cor};">${n} aula${n !== 1 ? 's' : ''}</span>
                 </div>
-                <div style="background:${bgBarra};border-radius:999px;height:8px;overflow:hidden;">
-                  <div style="width:${p.progress}%;background:${cor};height:100%;border-radius:999px;"></div>
+                <div style="background:${bg};border-radius:999px;height:8px;overflow:hidden;">
+                  <div style="width:${Math.min(n * 10, 100)}%;background:${cor};height:100%;border-radius:999px;"></div>
                 </div>
               </div>`;
             }).join('')}
