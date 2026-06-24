@@ -769,23 +769,17 @@ function perfilParaHTML(aluno, sparring, subdomain, formacoes, mk) {
     </div>`).join('');
 
   // Progresso da Memberkit
-  const progressosHTML = mk && mk.progressos && mk.progressos.length ? `
-    <div class="divider"></div>
-    <div class="section-label">Progresso na Plataforma</div>
-    ${mk.progressos.map(p => {
-      const pct = p.progress || 0;
-      const cor = pct === 100 ? '#2e7d32' : pct >= 50 ? '#7B2D8B' : '#e65100';
-      const bg = pct === 100 ? '#c8e6c9' : pct >= 50 ? '#f5eef8' : '#ffe0cc';
-      return `<div style="margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-          <span style="font-size:11px;color:#1a1a2e;">${p.course_name}</span>
-          <span style="font-size:11px;font-weight:700;color:${cor};">${pct}%</span>
-        </div>
-        <div style="background:${bg};border-radius:999px;height:6px;overflow:hidden;">
-          <div style="width:${pct}%;background:${cor};height:100%;border-radius:999px;"></div>
-        </div>
-      </div>`;
-    }).join('')}` : '';
+  const progressosHTML = mk && mk.progressos && mk.progressos.length ? (() => {
+    const maxAulas = Math.max.apply(null, mk.progressos.map(function(p) { return p.aulas_concluidas || 0; }).concat([1]));
+    return '<div class="divider"></div><div class="section-label">Progresso na Plataforma</div>' +
+      mk.progressos.map(function(p) {
+        var n = p.aulas_concluidas || 0;
+        var pct = Math.round((n / maxAulas) * 100);
+        var cor = pct === 100 ? '#2e7d32' : pct >= 50 ? '#7B2D8B' : '#e65100';
+        var bg = pct === 100 ? '#c8e6c9' : pct >= 50 ? '#f5eef8' : '#ffe0cc';
+        return '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:11px;color:#1a1a2e;">' + p.course_name + '</span><span style="font-size:11px;font-weight:700;color:' + cor + ';">' + n + ' aula' + (n !== 1 ? 's' : '') + '</span></div><div style="background:' + bg + ';border-radius:999px;height:6px;overflow:hidden;"><div style="width:' + pct + '%;background:' + cor + ';height:100%;border-radius:999px;"></div></div></div>';
+      }).join('');
+  })() : '';
 
   return `
     <div class="card">
@@ -991,20 +985,24 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
         <div class="section-title">Progresso na Plataforma</div>
         ${mk && mk.progressos && mk.progressos.length ? `
           <div>
-            ${mk.progressos.map(p => {
-              const pct = p.progress || 0;
-              const cor = pct === 100 ? '#2e7d32' : pct >= 50 ? 'var(--purple)' : '#e65100';
-              const bg = pct === 100 ? '#c8e6c9' : pct >= 50 ? '#e8e0ed' : '#ffe0cc';
-              return `<div style="margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-                  <span style="font-size:13px;font-weight:500;color:var(--text);">${p.course_name}</span>
-                  <span style="font-size:12px;font-weight:700;color:${cor};">${pct}%</span>
-                </div>
-                <div style="background:${bg};border-radius:999px;height:8px;overflow:hidden;">
-                  <div style="width:${pct}%;background:${cor};height:100%;border-radius:999px;"></div>
-                </div>
-              </div>`;
-            }).join('')}
+            ${(() => {
+              const maxAulas = Math.max(...mk.progressos.map(p => p.aulas_concluidas || 0), 1);
+              return mk.progressos.map(p => {
+                const n = p.aulas_concluidas || 0;
+                const pct = Math.round((n / maxAulas) * 100);
+                const cor = pct === 100 ? '#2e7d32' : pct >= 50 ? 'var(--purple)' : '#e65100';
+                const bg = pct === 100 ? '#c8e6c9' : pct >= 50 ? '#e8e0ed' : '#ffe0cc';
+                return `<div style="margin-bottom:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                    <span style="font-size:13px;font-weight:500;color:var(--text);">${p.course_name}</span>
+                    <span style="font-size:12px;font-weight:700;color:${cor};">${n} aula${n !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div style="background:${bg};border-radius:999px;height:8px;overflow:hidden;">
+                    <div style="width:${pct}%;background:${cor};height:100%;border-radius:999px;"></div>
+                  </div>
+                </div>`;
+              }).join('');
+            })()}
           </div>` : `<p style="color:var(--muted);font-size:13px;">Nenhum progresso registrado na plataforma.</p>`}
         <a href="${mkLink}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--purple);color:white;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;margin-top:14px;">
           🔗 Ver perfil completo na Memberkit
