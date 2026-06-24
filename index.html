@@ -964,14 +964,14 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
       </div>
 
       <div class="section">
-        <div class="section-title">Memberkit</div>
+        <div class="section-title">Progresso na Plataforma</div>
         ${mk && mk.progressos && mk.progressos.length ? `
-          <div style="margin-bottom:14px;">
+          <div>
             ${mk.progressos.map(p => {
               const cor = p.progress === 100 ? '#2e7d32' : p.progress >= 50 ? 'var(--purple)' : '#e65100';
               const bgBarra = p.progress === 100 ? '#c8e6c9' : p.progress >= 50 ? '#e8e0ed' : '#ffe0cc';
-              return `<div style="margin-bottom:10px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              return `<div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                   <span style="font-size:13px;font-weight:500;color:var(--text);">${p.course_name}</span>
                   <span style="font-size:12px;font-weight:700;color:${cor};">${p.progress}%</span>
                 </div>
@@ -980,22 +980,8 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
                 </div>
               </div>`;
             }).join('')}
-          </div>` : ''}
-        ${mk && mk.memberships && mk.memberships.length ? `
-          <div style="margin-bottom:14px;">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Acessos</div>
-            ${mk.memberships.map(m => {
-              const ativo = m.status === 'active';
-              return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:8px 12px;background:${ativo ? 'var(--purple-faint)' : '#f5f5f5'};border-radius:8px;border-left:3px solid ${ativo ? 'var(--purple)' : '#ddd'};">
-                <span style="font-size:12px;font-weight:600;color:${ativo ? 'var(--purple)' : 'var(--muted)'};">${m.name}</span>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${ativo ? 'var(--purple)' : '#ddd'};color:${ativo ? 'white' : '#888'};">${ativo ? 'Ativo' : 'Expirado'}</span>
-                  ${m.expire_date ? `<span style="font-size:11px;color:var(--muted);">${m.expire_date}</span>` : ''}
-                </div>
-              </div>`;
-            }).join('')}
-          </div>` : ''}
-        <a href="${mkLink}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--purple);color:white;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">
+          </div>` : `<p style="color:var(--muted);font-size:13px;">Nenhum progresso registrado na plataforma.</p>`}
+        <a href="${mkLink}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--purple);color:white;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;margin-top:14px;">
           🔗 Ver perfil completo na Memberkit
         </a>
       </div>
