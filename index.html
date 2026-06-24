@@ -501,8 +501,10 @@ async function buscarNaPlanilhaAlunos(query, sheetId) {
   const rows = parseCSV(text);
   if (rows.length < 2) return [];
 
-  // Estrutura: ID(0) | ,(1) | Mês(2) | Data(3) | Período(4) | Expiração(5) | Nome(6) | Email(7) | Telefone(8)
+  // Closer Pro aba Compradores — busca coluna Status pelo nome no cabeçalho
+  const header = rows[0];
   const nomeIdx = 6, emailIdx = 7, telIdx = 8, dataIdx = 3, expIdx = 5;
+  const statusIdx = header.findIndex(h => normalize(h) === 'status');
 
   const q = normalize(query);
   const resultados = [];
@@ -516,7 +518,7 @@ async function buscarNaPlanilhaAlunos(query, sheetId) {
         telefone: row[telIdx] || '',
         dataInicio: row[dataIdx] || '',
         expiracao: row[expIdx] || '',
-        status: row[18] || '',
+        status: (statusIdx >= 0 ? row[statusIdx] || '' : '').trim(),
       });
     }
   }
@@ -550,26 +552,40 @@ async function buscarNaPlanilhaSparrings(query, sheetId) {
 }
 
 // ─── LÍDER PRO ────────────────────────────────────
-// Aba Suporte (gid 1895108430) tem duas tabelas:
-// Tabela 1 (vendas): col0=ID, col1=DataCadastro, col2=Ano, col3=Mês, col4=DataVenda, col5=Nome, col6=Email, col7=Telefone
-// Tabela 2 (controle): col0=DataCompra, col1=Expiração, col2=Nome, col3=Email, col5=Telefone
+// Aba Suporte — duas tabelas. Tabela controle tem coluna "Status" — busca pelo nome.
 async function buscarNaPlanilhaLiderPro(query, sheetId) {
   const text = await fetchSheetCSV(sheetId, '1895108430');
   const rows = parseCSV(text);
   if (rows.length < 2) return null;
 
   const q = normalize(query);
-  let resultadoVendas = null;
+
+  // Encontra o cabeçalho da tabela controle e o índice de Status
+  let ctrlStatusIdx = -1;
+  let ctrlHeaderRow = -1;
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const row = rows[i];
+    const idx = row.findIndex(h => normalize(h) === 'status');
+    if (idx >= 0 && row.some(h => normalize(h) === 'expiracao' || normalize(h).includes('expira'))) {
+      ctrlStatusIdx = idx;
+      ctrlHeaderRow = i;
+      break;
+    }
+  }
+  // Fallback: col 7
+  if (ctrlStatusIdx < 0) ctrlStatusIdx = 7;
+
   let resultadoControle = null;
+  let resultadoVendas = null;
 
   for (const row of rows) {
     if (row.length < 3) continue;
 
-    // Tabela de controle: col1=Expiração, col2=Nome, col3=Email, col5=Tel
-    const nomeCtrl = row[2] || '';
+    // Tabela controle: Email=col3, Nome=col2
     const emailCtrl = row[3] || '';
-    if (nomeCtrl && emailCtrl && emailCtrl.includes('@')) {
-      if (normalize(emailCtrl) === q || normalize(emailCtrl).includes(q) || normalize(nomeCtrl).includes(q)) {
+    const nomeCtrl = row[2] || '';
+    if (emailCtrl && emailCtrl.includes('@')) {
+      if (normalize(emailCtrl).includes(q) || normalize(nomeCtrl).includes(q)) {
         resultadoControle = {
           formacao: 'Líder Pro',
           nome: nomeCtrl,
@@ -577,37 +593,36 @@ async function buscarNaPlanilhaLiderPro(query, sheetId) {
           telefone: row[5] || '',
           dataInicio: row[0] || '',
           expiracao: row[1] || '',
+          status: (row[ctrlStatusIdx] || '').trim(),
         };
       }
     }
 
-    // Tabela de vendas: col5=Nome, col6=Email, col7=Tel, col4=DataVenda
-    const nomeVnd = row[5] || '';
+    // Tabela vendas: Email=col6, Nome=col5
     const emailVnd = row[6] || '';
-    if (nomeVnd && emailVnd && emailVnd.includes('@')) {
-      if (normalize(emailVnd) === q || normalize(emailVnd).includes(q) || normalize(nomeVnd).includes(q)) {
-        if (!resultadoVendas) {
-          resultadoVendas = {
-            formacao: 'Líder Pro',
-            nome: nomeVnd,
-            email: emailVnd,
-            telefone: row[7] || '',
-            dataInicio: row[4] || '',
-            expiracao: '',
-          };
-        }
+    const nomeVnd = row[5] || '';
+    if (emailVnd && emailVnd.includes('@') && !resultadoVendas) {
+      if (normalize(emailVnd).includes(q) || normalize(nomeVnd).includes(q)) {
+        resultadoVendas = {
+          formacao: 'Líder Pro',
+          nome: nomeVnd,
+          email: emailVnd,
+          telefone: row[7] || '',
+          dataInicio: row[4] || '',
+          expiracao: '',
+          status: '',
+        };
       }
     }
   }
 
-  // Prioriza controle (tem expiração), senão usa vendas
   if (resultadoControle) return resultadoControle;
   if (resultadoVendas) return resultadoVendas;
   return null;
 }
 
 // ─── ESPECIALIZAÇÃO CLOSER HIGH TICKET ────────────
-// Estrutura: CONTENT_ID(0) | Data Cadastro(1) | Ano(2) | Mês(3) | Data Venda(4) | Período(5) | Expiração(6) | Nome(7) | Email(8) | Telefone(9)
+// Estrutura: CONTENT_ID(0)|DataCadastro(1)|Ano(2)|Mês(3)|DataVenda(4)|Período(5)|Expiração(6)|Nome(7)|Email(8)|Telefone(9)|Status(10)
 async function buscarNaPlanilhaEspecializacao(query, sheetId) {
   const text = await fetchSheetCSV(sheetId, '0');
   const rows = parseCSV(text);
@@ -621,11 +636,11 @@ async function buscarNaPlanilhaEspecializacao(query, sheetId) {
     if (normalize(email) === q || normalize(email).includes(q) || normalize(nome).includes(q)) {
       return {
         formacao: 'Especialização Closer HT',
-        nome: nome,
-        email: email,
+        nome, email,
         telefone: row[9] || '',
         dataInicio: row[4] || '',
         expiracao: row[6] || '',
+        status: (row[10] || '').trim(),
       };
     }
   }
@@ -924,7 +939,23 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
   const spVendedor = sparring?.vendedor ?? '—';
   const spTotal = (sparring?.ouvinte||0)+(sparring?.lead||0)+(sparring?.vendedor||0);
 
-  const fotoUrl = mk?.profile_image_url || '';
+  // Status de acesso — mostra exatamente o que está na planilha
+  const statusPlanilha = aluno?.status || liderPro?.status || especializacao?.status || '';
+  const statusLower = normalize(statusPlanilha);
+  const isReembolso = statusLower.includes('reembolso') || statusLower.includes('reembolsado');
+  const isAtivo = statusLower === 'ativo';
+
+  let alertaHTML = '';
+  if (statusPlanilha) {
+    const cor = isReembolso ? '#c62828' : isAtivo ? '#2e7d32' : '#f57f17';
+    const bg = isReembolso ? '#ffeaea' : isAtivo ? '#e8f5e9' : '#fff8e1';
+    const borda = isReembolso ? '#e53935' : isAtivo ? '#43a047' : '#f9a825';
+    const icone = isReembolso ? '🚫' : isAtivo ? '✅' : '⚠️';
+    alertaHTML = `<div style="background:${bg};border:1px solid ${borda};border-radius:10px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:16px;">${icone}</span>
+      <span style="font-size:13px;font-weight:700;color:${cor};">Status: ${statusPlanilha}</span>
+    </div>`;
+  }
   const avatarHtml = fotoUrl
     ? `<img src="${fotoUrl}" alt="${nome}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.innerHTML='${iniciais(nome)}'">`
     : iniciais(nome);
@@ -967,7 +998,7 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
       </div>
     </div>
     <div class="body-card">
-
+      ${alertaHTML}
       <div class="section">
         <div class="section-title">Dados Cadastrais</div>
         <div class="info-grid">
@@ -1021,22 +1052,10 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
 
       <div class="section">
         <div class="section-title">Progresso na Plataforma (Memberkit)</div>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Cole um print da tela da Memberkit <strong>ou</strong> digite o progresso em texto — um módulo por linha.</p>
-
-        <!-- Upload de imagem -->
-        <div id="dropZone" onclick="document.getElementById('imgInput').click()" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;margin-bottom:12px;transition:border-color .2s;" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--border)'">
-          <div style="font-size:24px;">🖼️</div>
-          <div style="font-size:13px;font-weight:600;color:var(--purple);margin-top:6px;">Clique para enviar um print</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">PNG, JPG ou print da tela</div>
-          <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="lerImagemProgresso(this)">
-        </div>
-
-        <div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:12px;">— ou digite manualmente —</div>
-
-        <textarea id="progressoManual" placeholder="Exemplo:&#10;Técnicas de vendas: 100%&#10;O Mapa da Liderança: 43%&#10;Sparrings: 100%" style="width:100%;height:100px;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;color:var(--text);background:white;"></textarea>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Digite o progresso no formato <strong>"Módulo: XX%"</strong> — um por linha. Copie direto da tela da Memberkit.</p>
+        <textarea id="progressoManual" placeholder="Exemplo:&#10;Técnicas de vendas: 100%&#10;O Mapa da Liderança: 43%&#10;Sparrings: 100%&#10;Oficina de Carreira: 60%" style="width:100%;height:120px;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;color:var(--text);background:white;"></textarea>
         <button onclick="aplicarProgressoManual()" style="margin-top:8px;padding:8px 18px;background:var(--purple);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">✅ Aplicar progresso</button>
-
-        <div id="progressoManualStatus" style="margin-top:8px;font-size:12px;color:var(--purple);display:none;">⏳ Lendo o print com IA...</div>
+        <div id="progressoManualStatus" style="margin-top:8px;font-size:12px;display:none;"></div>
         <div id="progressoManualPreview" style="margin-top:12px;"></div>
       </div>
 
@@ -1129,6 +1148,7 @@ async function lerImagemProgresso(input) {
 function aplicarProgressoManual() {
   const status = document.getElementById('progressoManualStatus');
   if (status) { status.style.display = 'none'; }
+  const texto = document.getElementById('progressoManual')?.value || '';
   if (!texto.trim()) return;
 
   // Interpreta linhas no formato "Nome do módulo: XX%" ou "Nome do módulo XX%"
@@ -1136,7 +1156,6 @@ function aplicarProgressoManual() {
   const progressos = [];
 
   linhas.forEach(function(linha) {
-    // Tenta extrair número %
     const match = linha.match(/^(.+?)[\:\-]?\s*(\d+)\s*%/);
     if (match) {
       const nome = match[1].trim().replace(/[\:\-]$/, '').trim();
@@ -1150,9 +1169,20 @@ function aplicarProgressoManual() {
     return;
   }
 
-  // Salva no _alunoAtual para incluir no PDF
+  // Salva no _alunoAtual
   if (window._alunoAtual) {
     window._alunoAtual.progressoManual = progressos;
+  }
+
+  // Atualiza também na lista _perfisParaPDF se o aluno já foi adicionado
+  const email = window._alunoAtual?.aluno?.email || '';
+  if (email) {
+    _perfisParaPDF = _perfisParaPDF.map(function(p) {
+      if (p.aluno?.email === email) {
+        return Object.assign({}, p, { progressoManual: progressos });
+      }
+      return p;
+    });
   }
 
   // Mostra preview
