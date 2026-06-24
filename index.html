@@ -738,7 +738,7 @@ function comparaExpiracao(dataSheet, dataMk) {
 // ─── SELEÇÃO PARA PDF ─────────────────────────────
 let _perfisParaPDF = [];
 
-function perfilParaHTML(aluno, sparring, subdomain, formacoes) {
+function perfilParaHTML(aluno, sparring, subdomain, formacoes, mk) {
   const nome = aluno?.nome || '—';
   const email = aluno?.email || '—';
   const tel = aluno?.telefone || '';
@@ -747,7 +747,6 @@ function perfilParaHTML(aluno, sparring, subdomain, formacoes) {
   const spVendedor = sparring?.vendedor ?? 0;
   const spTotal = spOuvinte + spLead + spVendedor;
 
-  // Formações: usa o array se disponível, senão monta básico
   const nomeCompletoF = (n) => {
     if (!n) return n;
     const nl = (n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -768,6 +767,25 @@ function perfilParaHTML(aluno, sparring, subdomain, formacoes) {
       <span style="font-size:12px;font-weight:700;color:#7B2D8B;">${nomeCompletoF(f.nome)}</span>
       <span style="font-size:11px;color:#7a7090;">${f.inicio ? 'Início: ' + f.inicio : ''} ${f.exp ? '· Exp: ' + f.exp : ''}</span>
     </div>`).join('');
+
+  // Progresso da Memberkit
+  const progressosHTML = mk && mk.progressos && mk.progressos.length ? `
+    <div class="divider"></div>
+    <div class="section-label">Progresso na Plataforma</div>
+    ${mk.progressos.map(p => {
+      const n = p.aulas_concluidas || 0;
+      const cor = n >= 10 ? '#2e7d32' : n >= 5 ? '#7B2D8B' : '#e65100';
+      const bg = n >= 10 ? '#c8e6c9' : n >= 5 ? '#f5eef8' : '#ffe0cc';
+      return `<div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:11px;color:#1a1a2e;">${p.course_name}</span>
+          <span style="font-size:11px;font-weight:700;color:${cor};">${n} aula${n!==1?'s':''}</span>
+        </div>
+        <div style="background:${bg};border-radius:999px;height:6px;overflow:hidden;">
+          <div style="width:${Math.min(n*10,100)}%;background:${cor};height:100%;border-radius:999px;"></div>
+        </div>
+      </div>`;
+    }).join('')}` : '';
 
   return `
     <div class="card">
@@ -794,6 +812,7 @@ function perfilParaHTML(aluno, sparring, subdomain, formacoes) {
           <div class="sp-card"><div class="sp-num">${spVendedor}</div><div class="sp-lbl">Vendedor</div></div>
           <div class="sp-card sp-total"><div class="sp-num">${spTotal}</div><div class="sp-lbl">Total</div></div>
         </div>
+        ${progressosHTML}
       </div>
     </div>`;
 }
@@ -866,7 +885,7 @@ function exportarPDF() {
       <div style="font-weight:600;font-size:13px;">${new Date().toLocaleDateString('pt-BR')}</div>
     </div>
   </div>
-  ${_perfisParaPDF.map(p => perfilParaHTML(p.aluno, p.sparring, cfg.subdomain, p.formacoes)).join('')}
+  ${_perfisParaPDF.map(p => perfilParaHTML(p.aluno, p.sparring, cfg.subdomain, p.formacoes, p.mk)).join('')}
   <div class="footer">Vendas Pro · Comercial Pro · ${new Date().getFullYear()}</div>
 </div>
 <script>
@@ -903,7 +922,7 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
 
   const avatarHtml = iniciais(nome);
   const mkEmail = encodeURIComponent(email);
-  const mkLink = email ? `https://${subdomain}.memberkit.com.br/admin/users?q=${mkEmail}` : `https://${subdomain}.memberkit.com.br/admin/users`;
+  const mkLink = 'https://metodo-def.memberkit.com.br/admin/users' + (email ? '?q=' + mkEmail : '');
 
   const telNumeros = tel.replace(/\D/g, '');
   const telHtml = telNumeros
@@ -1010,7 +1029,7 @@ function render(aluno, sparring, mk, subdomain, liderPro, especializacao) {
     </div>
   `;
 
-  window._alunoAtual = { aluno, sparring, liderPro, especializacao, formacoes };
+  window._alunoAtual = { aluno, sparring, liderPro, especializacao, formacoes, mk };
   document.getElementById('result').style.display = 'block';
 }
 
@@ -1025,7 +1044,7 @@ function adicionarAoPDF() {
     document.getElementById('btnAdd').style.background = 'var(--purple)';
     document.getElementById('btnAdd').style.color = 'white';
   } else {
-    _perfisParaPDF.push({ aluno, sparring, formacoes });
+    _perfisParaPDF.push({ aluno, sparring, formacoes, mk: window._alunoAtual?.mk || null });
     document.getElementById('btnAdd').textContent = '✅ Adicionado';
     document.getElementById('btnAdd').style.background = '#e8f5e9';
     document.getElementById('btnAdd').style.color = '#2e7d32';
