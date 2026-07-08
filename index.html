@@ -544,14 +544,16 @@ async function buscarNaPlanilhaAlunos(query, sheetId) {
 
 // Verifica se query bate com nome ou email
 function matchQuery(query, nome, email) {
-  const q = normalize(query.trim());
+  const q = normalize((query || '').trim());
   if (!q) return false;
   // Busca por email: exige match exato
-  if (query.includes('@')) return normalize(email.trim()) === q;
-  // Busca por nome: retorna se qualquer palavra da query aparece no nome
-  const palavras = q.split(/\s+/).filter(Boolean);
-  const nomeN = normalize(nome);
-  return palavras.some(p => p.length >= 3 && nomeN.includes(p));
+  if (q.includes('@')) return normalize((email || '').trim()) === q;
+  // Busca por nome: qualquer palavra da query com 2+ letras aparece no nome
+  const nomeN = normalize(nome || '');
+  const emailN = normalize(email || '');
+  const palavras = q.split(' ').filter(p => p.length >= 2);
+  if (!palavras.length) return nomeN.includes(q) || emailN.includes(q);
+  return palavras.some(p => nomeN.includes(p) || emailN.includes(p));
 }
 
 async function buscarNaPlanilhaSparrings(query, sheetId) {
