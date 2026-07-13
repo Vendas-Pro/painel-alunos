@@ -548,12 +548,11 @@ function matchQuery(query, nome, email) {
   if (!q) return false;
   // Busca por email: exige match exato
   if (q.includes('@')) return normalize((email || '').trim()) === q;
-  // Busca por nome: qualquer palavra da query com 2+ letras aparece no nome
+  // Busca por nome: TODAS as palavras da query devem aparecer no nome
   const nomeN = normalize(nome || '');
-  const emailN = normalize(email || '');
   const palavras = q.split(' ').filter(p => p.length >= 2);
-  if (!palavras.length) return nomeN.includes(q) || emailN.includes(q);
-  return palavras.some(p => nomeN.includes(p) || emailN.includes(p));
+  if (!palavras.length) return nomeN.includes(q);
+  return palavras.every(p => nomeN.includes(p));
 }
 
 async function buscarNaPlanilhaSparrings(query, sheetId) {
@@ -561,25 +560,33 @@ async function buscarNaPlanilhaSparrings(query, sheetId) {
   const rows = parseCSV(text);
   if (rows.length < 2) return null;
 
-  // Estrutura real: Pontuação(0) | Nome(1) | Email(2) | Ouvinte(3) | Lead(4) | Vendedor(5) | Dt Expiração(6) | Status(7) | Situação(8) | Formação(9)
   const nomeIdx = 1, emailIdx = 2, oIdx = 3, lIdx = 4, vIdx = 5, expIdx = 6, formacaoIdx = 9;
 
-  const q = normalize(query);
+  // Suporta múltiplos emails separados por vírgula
+  const queries = query.split(',').map(q => q.trim()).filter(Boolean);
+
+  let totalOuvinte = 0, totalLead = 0, totalVendedor = 0;
+  let expiracao = '', formacao = '';
+  let encontrou = false;
+
   for (const row of rows.slice(1)) {
     const nome = row[nomeIdx] || '';
     const email = row[emailIdx] || '';
     if (!nome && !email) continue;
-    if (matchQuery(query, nome, email)) {
-      return {
-        ouvinte: parseInt(row[oIdx]) || 0,
-        lead: parseInt(row[lIdx]) || 0,
-        vendedor: parseInt(row[vIdx]) || 0,
-        expiracao: row[expIdx] || '',
-        formacao: row[formacaoIdx] || '',
-      };
+
+    const bate = queries.some(q => matchQuery(q, nome, email));
+    if (bate) {
+      totalOuvinte += parseInt(row[oIdx]) || 0;
+      totalLead += parseInt(row[lIdx]) || 0;
+      totalVendedor += parseInt(row[vIdx]) || 0;
+      if (!expiracao) expiracao = row[expIdx] || '';
+      if (!formacao) formacao = row[formacaoIdx] || '';
+      encontrou = true;
     }
   }
-  return null;
+
+  if (!encontrou) return null;
+  return { ouvinte: totalOuvinte, lead: totalLead, vendedor: totalVendedor, expiracao, formacao };
 }
 
 // ─── LÍDER PRO ────────────────────────────────────
@@ -1283,7 +1290,7 @@ async function selecionarAluno(idx) {
   try {
     // Sparring sempre busca; Líder Pro e Especialização só buscam se não vieram do cache
     const promises = [
-      buscarNaPlanilhaSparrings(q, cfg.sheet2).catch(() => null),
+      buscarNaPlanilhaSparrings(aluno.email || q, cfg.sheet2).catch(() => null),
       buscarNaMemberkit(aluno.email).catch(() => null),
     ];
     if (!liderPro) promises.push(buscarNaPlanilhaLiderPro(q, cfg.sheetLider).catch(() => null));
@@ -1297,7 +1304,7 @@ async function selecionarAluno(idx) {
       especializacao = !liderPro ? results[2] : results[3];
     }
 
-    if (!sparring) sparring = await buscarNaPlanilhaSparrings(qNome, cfg.sheet2).catch(() => null);
+    if (!sparring && aluno.email) sparring = await buscarNaPlanilhaSparrings(aluno.email, cfg.sheet2).catch(() => null);
     if (!liderPro) liderPro = await buscarNaPlanilhaLiderPro(qNome, cfg.sheetLider).catch(() => null);
     if (!especializacao) especializacao = await buscarNaPlanilhaEspecializacao(qNome, cfg.sheetEspec).catch(() => null);
 
