@@ -652,25 +652,41 @@ async function buscarNaPlanilhaLiderPro(query, sheetId) {
 }
 
 // ─── ESPECIALIZAÇÃO CLOSER HIGH TICKET ────────────
-// Estrutura: CONTENT_ID(0)|DataCadastro(1)|Ano(2)|Mês(3)|DataVenda(4)|Período(5)|Expiração(6)|Nome(7)|Email(8)|Telefone(9)|Status(10)
 async function buscarNaPlanilhaEspecializacao(query, sheetId) {
   const text = await fetchSheetCSV(sheetId, '0');
   const rows = parseCSV(text);
   if (rows.length < 2) return null;
 
-  const q = normalize(query);
+  // Encontra índices pelo cabeçalho
+  const header = rows[0];
+  const findCol = (...names) => {
+    for (const n of names) {
+      const idx = header.findIndex(h => normalize((h||'').trim()).includes(normalize(n)));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  // Cabeçalho real: Ano(0)|Mês(1)|Data Venda(2)|Período(3)|Expiração(4)|Nome(5)|E-mail(6)|Telefone(7)|Status(8)
+  const nomeIdx = findCol('nome') >= 0 ? findCol('nome') : 5;
+  const emailIdx = findCol('e-mail', 'email') >= 0 ? findCol('e-mail', 'email') : 6;
+  const telIdx = findCol('telefone', 'tel') >= 0 ? findCol('telefone', 'tel') : 7;
+  const dataIdx = findCol('data venda', 'data') >= 0 ? findCol('data venda', 'data') : 2;
+  const expIdx = findCol('expira') >= 0 ? findCol('expira') : 4;
+  const statusIdx = findCol('status') >= 0 ? findCol('status') : 8;
+
   for (const row of rows.slice(1)) {
-    const nome = row[7] || '';
-    const email = row[8] || '';
+    const nome = row[nomeIdx] || '';
+    const email = row[emailIdx] || '';
     if (!nome && !email) continue;
-    if (normalize(email) === q || normalize(email).includes(q) || normalize(nome).includes(q)) {
+    if (matchQuery(query, nome, email)) {
       return {
         formacao: 'Especialização Closer HT',
         nome, email,
-        telefone: row[9] || '',
-        dataInicio: row[4] || '',
-        expiracao: row[6] || '',
-        status: (row[10] || '').trim(),
+        telefone: row[telIdx] || '',
+        dataInicio: row[dataIdx] || '',
+        expiracao: row[expIdx] || '',
+        status: (row[statusIdx] || '').trim(),
       };
     }
   }
@@ -1288,21 +1304,18 @@ async function selecionarAluno(idx) {
   const qNome = aluno.nome;
 
   try {
-    // Sparring sempre busca; Líder Pro e Especialização só buscam se não vieram do cache
-    const promises = [
+    // Busca simultânea SEMPRE nas 3 planilhas + sparrings + memberkit
+    const [sparringRes, mkRes, liderProRes, especializacaoRes] = await Promise.all([
       buscarNaPlanilhaSparrings(aluno.email || q, cfg.sheet2).catch(() => null),
       buscarNaMemberkit(aluno.email).catch(() => null),
-    ];
-    if (!liderPro) promises.push(buscarNaPlanilhaLiderPro(q, cfg.sheetLider).catch(() => null));
-    if (!especializacao) promises.push(buscarNaPlanilhaEspecializacao(q, cfg.sheetEspec).catch(() => null));
+      buscarNaPlanilhaLiderPro(q, cfg.sheetLider).catch(() => null),
+      buscarNaPlanilhaEspecializacao(q, cfg.sheetEspec).catch(() => null),
+    ]);
 
-    const results = await Promise.all(promises);
-    sparring = results[0];
-    let mk = results[1] || null;
-    if (!liderPro && results[2] !== undefined) liderPro = results[2];
-    if (!especializacao && results[promises.length - 1] !== undefined && promises.length > 2) {
-      especializacao = !liderPro ? results[2] : results[3];
-    }
+    sparring = sparringRes;
+    let mk = mkRes || null;
+    if (!liderPro) liderPro = liderProRes;
+    if (!especializacao) especializacao = especializacaoRes;
 
     if (!sparring && aluno.email) sparring = await buscarNaPlanilhaSparrings(aluno.email, cfg.sheet2).catch(() => null);
     if (!liderPro) liderPro = await buscarNaPlanilhaLiderPro(qNome, cfg.sheetLider).catch(() => null);
