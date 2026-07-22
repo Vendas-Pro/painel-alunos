@@ -571,10 +571,22 @@ async function buscarNaPlanilhaSparrings(query, sheetId) {
 
   for (const row of rows.slice(1)) {
     const nome = row[nomeIdx] || '';
-    const email = row[emailIdx] || '';
-    if (!nome && !email) continue;
+    const emailCell = row[emailIdx] || '';
+    if (!nome && !emailCell) continue;
 
-    const bate = queries.some(q => matchQuery(q, nome, email));
+    // Emails na planilha podem ser separados por barra /
+    const emailsNaCelula = emailCell.split('/').map(e => e.trim()).filter(Boolean);
+
+    const bate = queries.some(q => {
+      if (q.includes('@')) {
+        // Busca por email: verifica todos os emails da célula
+        return emailsNaCelula.some(e => normalize(e) === normalize(q));
+      } else {
+        // Busca por nome
+        return matchQuery(q, nome, emailCell);
+      }
+    });
+
     if (bate) {
       totalOuvinte += parseInt(row[oIdx]) || 0;
       totalLead += parseInt(row[lIdx]) || 0;
