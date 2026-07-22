@@ -574,13 +574,13 @@ async function buscarNaPlanilhaSparrings(query, sheetId) {
     const emailCell = row[emailIdx] || '';
     if (!nome && !emailCell) continue;
 
-    // Emails na planilha podem ser separados por barra /
-    const emailsNaCelula = emailCell.split('/').map(e => e.trim()).filter(Boolean);
+    // Emails na planilha podem ser separados por barra / vírgula ou ponto e vírgula
+    const emailsNaCelula = emailCell.split(/[\/,;]/).map(e => e.trim().toLowerCase()).filter(e => e.includes('@'));
 
     const bate = queries.some(q => {
       if (q.includes('@')) {
         // Busca por email: verifica todos os emails da célula
-        return emailsNaCelula.some(e => normalize(e) === normalize(q));
+        return emailsNaCelula.some(e => e === normalize(q));
       } else {
         // Busca por nome
         return matchQuery(q, nome, emailCell);
