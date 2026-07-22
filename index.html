@@ -1318,13 +1318,17 @@ async function selecionarAluno(idx) {
   try {
     // Busca simultânea SEMPRE nas 3 planilhas + sparrings + memberkit
     const [sparringRes, mkRes, liderProRes, especializacaoRes] = await Promise.all([
-      buscarNaPlanilhaSparrings(aluno.email || q, cfg.sheet2).catch(() => null),
+      buscarNaPlanilhaSparrings(aluno.email || aluno.nome, cfg.sheet2).catch(() => null),
       buscarNaMemberkit(aluno.email).catch(() => null),
       buscarNaPlanilhaLiderPro(q, cfg.sheetLider).catch(() => null),
       buscarNaPlanilhaEspecializacao(q, cfg.sheetEspec).catch(() => null),
     ]);
 
     sparring = sparringRes;
+    // Se não achou sparring por email, tenta pelo nome
+    if (!sparring && aluno.nome) {
+      sparring = await buscarNaPlanilhaSparrings(aluno.nome, cfg.sheet2).catch(() => null);
+    }
     let mk = mkRes || null;
     if (!liderPro) liderPro = liderProRes;
     if (!especializacao) especializacao = especializacaoRes;
